@@ -1,0 +1,8 @@
+{
+    // "C_Cpp.default.compilerPath": "${env:IDF_TOOLS}\\riscv32-esp-elf\\esp-12.2.0_20230208\\riscv32-esp-elf\\bin\\riscv32-esp-elf-gcc.exe",
+    "C_Cpp.formatting": "clangFormat",
+    "C_Cpp.clang_format_style": "file",
+    "doxdocgen.c.firstLine": "/*",
+    "doxdocgen.c.triggerSequence": "/*",
+    "C_Cpp.autoAddFileAssociations": false,
+}

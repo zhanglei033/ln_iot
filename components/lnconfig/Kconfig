@@ -1,0 +1,7 @@
+menu "common component configuration"
+    #rsource "../xbluetooth/Kconfig.in"
+    #rsource "../xevent_loop/Kconfig.in"
+    #rsource "../xlocal_storage/Kconfig.in"
+    #rsource "../xwifi/Kconfig.in"
+    #rsource "../xiot_client/Kconfig.in"
+endmenu
