@@ -51,7 +51,7 @@
 #endif
 
 #ifndef LN_APP_NDEBUG
-#define LN_APP_NDEBUG 0
+#define LN_APP_NDEBUG 1
 #endif
 
 #ifdef __cplusplus
