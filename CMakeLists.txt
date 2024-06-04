@@ -4,13 +4,13 @@ cmake_minimum_required(VERSION 3.8)
 # include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 if(DEFINED IDF_PATH) # ESP32编译
-project(ln_iot_framework)
+project(lncomponent)
 
 else() # 其他编译
 include(cmake/funcs.cmake)
 include(cmake/platform.cmake)
 include(cmake/vars.cmake)
-project(ln_iot_framework VERSION 1.0)
+project(lncomponent VERSION 1.0)
 # C++17 C17
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_CXX_STANDARD 17)
