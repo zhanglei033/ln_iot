@@ -7,9 +7,12 @@ if(DEFINED IDF_PATH) # ESP32编译
 project(lncomponent)
 
 else() # 其他编译
-include(cmake/funcs.cmake)
-include(cmake/platform.cmake)
-include(cmake/vars.cmake)
+
+set(LN_COMPONENT_PATH ./)
+
+include(${LN_COMPONENT_PATH}/cmake/funcs.cmake)
+include(${LN_COMPONENT_PATH}/cmake/platform.cmake)
+include(${LN_COMPONENT_PATH}/cmake/vars.cmake)
 project(lncomponent VERSION 1.0)
 # C++17 C17
 set(CMAKE_C_STANDARD 17)
