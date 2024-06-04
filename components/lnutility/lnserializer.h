@@ -297,6 +297,10 @@ struct serialization_stl_type
             }
             else
             {
+                // TODO: 还有优化空间，内存连续可以使用压缩算法
+                // if constexpr (std::is_trivially_copyable_v<T>)
+                // {
+                // }
                 for (auto& v : value) cont << v;
                 return cont;
             }
@@ -329,6 +333,10 @@ struct serialization_stl_type
             }
             else
             {
+                // TODO: 还有优化空间，内存连续可以使用压缩算法
+                // if constexpr (std::is_trivially_copyable_v<T>)
+                // {
+                // }
                 for (auto& v : value)
                 {
                     cont >> v;
@@ -361,6 +369,10 @@ struct serialization_stl_type
             }
             else
             {
+                // TODO: 还有优化空间，内存连续可以使用压缩算法
+                // if constexpr (std::is_trivially_copyable_v<T>)
+                // {
+                // }
                 for (auto& v : value) cont << v;
             }
             return cont;
@@ -398,6 +410,10 @@ struct serialization_stl_type
             }
             else
             {
+                // TODO: 还有优化空间，内存连续可以使用压缩算法
+                // if constexpr (std::is_trivially_copyable_v<T>)
+                // {
+                // }
                 for (auto& v : value)
                 {
                     cont >> v;
@@ -944,6 +960,10 @@ struct serialization_core
         }
         else
         {
+            // TODO: 还有优化空间，内存连续可以使用压缩算法
+            // if constexpr (std::is_trivially_copyable_v<T>)
+            // {
+            // }
             for (auto& v : value) cont << v;
             return cont;
         }
@@ -962,6 +982,10 @@ struct serialization_core
         }
         else
         {
+            // TODO: 还有优化空间，内存连续可以使用压缩算法
+            // if constexpr (std::is_trivially_copyable_v<T>)
+            // {
+            // }
             for (auto& v : value)
             {
                 cont >> v;
