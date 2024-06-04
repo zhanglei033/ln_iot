@@ -3,11 +3,33 @@
 #include "lntype_tarits.h"
 
 #if LN_APP_NDEBUG
-#define serialization_check_offset(cont)
+#define LN_SERIALIZATION_CHECK_OFFSET(cont)
 #else
-#define serialization_check_offset(cont)        \
+#define LN_SERIALIZATION_CHECK_OFFSET(cont)     \
     if (cont.offset == static_cast<size_t>(-1)) \
         return cont;
+#endif
+
+#if LN_APP_NDEBUG
+#define LN_SERIALIZATION_CHECK_BYTE_SIZE(cont)
+#else
+#define LN_SERIALIZATION_CHECK_BYTE_SIZE(byte_size, cur_type_size) \
+    if (byte_size > cur_type_size)                                 \
+    {                                                              \
+        cont.offset = static_cast<size_t>(-1);                     \
+        return cont;                                               \
+    }
+#endif
+
+#if LN_APP_NDEBUG
+#define LN_SERIALIZATION_CHECK_REST(cont, rest)
+#else
+#define LN_SERIALIZATION_CHECK_REST(cont, rest) \
+    if (cont.size() < rest)                     \
+    {                                           \
+        cont.offset = static_cast<size_t>(-1);  \
+        return cont;                            \
+    }
 #endif
 
 #define LN_SERIALIZER_VERSION "1001"
@@ -182,7 +204,7 @@ struct serialization_basic_type
     template <class Container, class T, class = std::enable_if_t<is_basic_type_v<T>>>
     inline static Container& deserialize(Container& cont, T& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         static constexpr uint8_t cur_type_size = sizeof(T);
         if constexpr (Container::ops & serialization_options::LN_COMPACTED)
         {
@@ -191,12 +213,7 @@ struct serialization_basic_type
                           || std::is_same<T, float32_t>::value
                           || std::is_same<T, float64_t>::value)
             {
-                if (cont.size() < cont.offset + cur_type_size)
-                {
-                    cont.offset = static_cast<size_t>(-1);
-                    return cont;
-                }
-
+                LN_SERIALIZATION_CHECK_REST(cont, cont.offset + cur_type_size);
                 ::memcpy(&value, cont.cur(), cur_type_size);
                 cont.offset += cur_type_size;
                 return cont;
@@ -204,12 +221,8 @@ struct serialization_basic_type
             else
             {
                 uint8_t byte_size = *cont.cur() & len_control_mask;
-                if (byte_size > cur_type_size || cont.size() < cont.offset + byte_size)
-                {
-                    cont.offset = static_cast<size_t>(-1);
-                    return cont;
-                }
-
+                LN_SERIALIZATION_CHECK_BYTE_SIZE(byte_size, cur_type_size);
+                LN_SERIALIZATION_CHECK_REST(cont, cont.offset + byte_size);
                 if (byte_size == cur_type_size)
                 {
                     size_t temp = 0;
@@ -229,12 +242,7 @@ struct serialization_basic_type
         }
         else
         {
-            if (cont.size() < cont.offset + cur_type_size)
-            {
-                cont.offset = static_cast<size_t>(-1);
-                return cont;
-            }
-
+            LN_SERIALIZATION_CHECK_REST(cont, cont.offset + cur_type_size);
             ::memcpy(&value, cont.cur(), cur_type_size);
             cont.offset += cur_type_size;
             return cont;
@@ -256,16 +264,12 @@ struct serialization_stl_type
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::basic_string<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (cont.size() < cont.offset + size || size == 0)
-        {
-            cont.offset = static_cast<size_t>(-1);
-            return cont;
-        }
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
+        LN_SERIALIZATION_CHECK_REST(cont, cont.offset + size);
         value.assign(reinterpret_cast<const char*>(cont.cur()), size);
         cont.offset += size;
         return cont;
@@ -302,15 +306,11 @@ struct serialization_stl_type
     template <class Container, class T, size_t N>
     inline static Container& deserialize(Container& cont, std::array<T, N>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         if constexpr (N == 0) return cont;
         if constexpr (((Container::ops & serialization_options::LN_COMPACTED) == 0) && std::is_trivially_copyable_v<T>)
         {
-            if (cont.size() < cont.offset + sizeof(T) * N)
-            {
-                cont.offset = static_cast<size_t>(-1);
-                return cont;
-            }
+            LN_SERIALIZATION_CHECK_REST(cont, cont.offset + sizeof(T) * N);
             ::memcpy(&value, cont.cur(), sizeof(T) * N);
             cont.offset += sizeof(T) * N;
             return cont;
@@ -322,11 +322,7 @@ struct serialization_stl_type
                           || std::is_same<T, float32_t>::value
                           || std::is_same<T, float64_t>::value)
             {
-                if (cont.size() < cont.offset + sizeof(T) * N)
-                {
-                    cont.offset = static_cast<size_t>(-1);
-                    return cont;
-                }
+                LN_SERIALIZATION_CHECK_REST(cont, cont.offset + sizeof(T) * N);
                 ::memcpy(&value, cont.cur(), sizeof(T) * N);
                 cont.offset += sizeof(T) * N;
                 return cont;
@@ -336,7 +332,7 @@ struct serialization_stl_type
                 for (auto& v : value)
                 {
                     cont >> v;
-                    serialization_check_offset(cont);
+                    LN_SERIALIZATION_CHECK_OFFSET(cont);
                 }
             }
             return cont;
@@ -373,20 +369,16 @@ struct serialization_stl_type
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::vector<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         if (size == 0) return cont;
         value.resize(size);
         if constexpr (((Container::ops & serialization_options::LN_COMPACTED) == 0) && std::is_trivially_copyable_v<T>)
         {
             size_t cur_type_size = sizeof(T) * size;
-            if (cont.size() < cont.offset + cur_type_size)
-            {
-                cont.offset = static_cast<size_t>(-1);
-                return cont;
-            }
+            LN_SERIALIZATION_CHECK_REST(cont, cont.offset + cur_type_size);
             ::memcpy(value.data(), cont.cur(), cur_type_size);
             cont.offset += cur_type_size;
             return cont;
@@ -399,11 +391,7 @@ struct serialization_stl_type
                           || std::is_same<T, float64_t>::value)
             {
                 size_t cur_type_size = sizeof(T) * size;
-                if (cont.size() < cont.offset + cur_type_size)
-                {
-                    cont.offset = static_cast<size_t>(-1);
-                    return cont;
-                }
+                LN_SERIALIZATION_CHECK_REST(cont, cont.offset + cur_type_size);
                 ::memcpy(value.data(), cont.cur(), cur_type_size);
                 cont.offset += cur_type_size;
                 return cont;
@@ -413,7 +401,7 @@ struct serialization_stl_type
                 for (auto& v : value)
                 {
                     cont >> v;
-                    serialization_check_offset(cont);
+                    LN_SERIALIZATION_CHECK_OFFSET(cont);
                 }
             }
         }
@@ -432,17 +420,16 @@ struct serialization_stl_type
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::deque<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         if (size == 0) return cont;
-
         value.resize(size);
         for (auto& v : value)
         {
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
         }
         return cont;
     }
@@ -452,25 +439,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::list<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::list<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         value.resize(size);
         for (auto& v : value)
         {
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
         }
         return cont;
     }
@@ -480,25 +464,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::queue<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::queue<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         value.resize(size);
         for (auto& v : value)
         {
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
         }
         return cont;
     }
@@ -508,24 +489,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::priority_queue<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::priority_queue<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         value.resize(size);
         for (auto& v : value)
         {
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
         }
         return cont;
     }
@@ -535,25 +514,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::stack<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::stack<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         value.resize(size);
         for (auto& v : value)
         {
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
         }
         return cont;
     }
@@ -563,26 +539,23 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::map<K, T>& value)
     {
         cont << value.size();
-        for (auto& [k, v] : value)
-            cont << k << v;
+        for (auto& [k, v] : value) cont << k << v;
         return cont;
     }
     template <class Container, class K, class T>
     inline static Container& deserialize(Container& cont, std::map<K, T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             K k{};
             T t{};
             cont >> k >> t;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::make_pair(std::move(k), std::move(t)));
         }
         return cont;
@@ -593,26 +566,23 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::multimap<K, T>& value)
     {
         cont << value.size();
-        for (auto& [k, v] : value)
-            cont << k << v;
+        for (auto& [k, v] : value) cont << k << v;
         return cont;
     }
     template <class Container, class K, class T>
     inline static Container& deserialize(Container& cont, std::multimap<K, T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             K k{};
             T v{};
             cont >> k >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::make_pair(std::move(k), std::move(v)));
         }
         return cont;
@@ -623,25 +593,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::set<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::set<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             T v{};
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::move(v));
         }
         return cont;
@@ -651,25 +618,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::multiset<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::multiset<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             T v{};
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::move(v));
         }
         return cont;
@@ -680,26 +644,23 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::unordered_map<K, T>& value)
     {
         cont << value.size();
-        for (auto& [k, v] : value)
-            cont << k << v;
+        for (auto& [k, v] : value) cont << k << v;
         return cont;
     }
     template <class Container, class K, class T>
     inline static Container& deserialize(Container& cont, std::unordered_map<K, T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             K k{};
             T t{};
             cont >> k >> t;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::make_pair(std::move(k), std::move(t)));
         }
         return cont;
@@ -709,26 +670,23 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::unordered_multimap<K, T>& value)
     {
         cont << value.size();
-        for (auto& [k, v] : value)
-            cont << k << v;
+        for (auto& [k, v] : value) cont << k << v;
         return cont;
     }
     template <class Container, class K, class T>
     inline static Container& deserialize(Container& cont, std::unordered_multimap<K, T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             K k{};
             T v{};
             cont >> k >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::make_pair(std::move(k), std::move(v)));
         }
         return cont;
@@ -739,25 +697,22 @@ struct serialization_stl_type
     inline static Container& serialize(Container& cont, const std::unordered_set<T>& value)
     {
         cont << value.size();
-        for (auto& v : value)
-            cont << v;
+        for (auto& v : value) cont << v;
         return cont;
     }
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::unordered_set<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             T v{};
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::move(v));
         }
         return cont;
@@ -774,18 +729,16 @@ struct serialization_stl_type
     template <class Container, class T>
     inline static Container& deserialize(Container& cont, std::unordered_multiset<T>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         size_t size = 0;
         cont >> size;
-        serialization_check_offset(cont);
-        if (size == 0)
-            return cont;
-
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
+        if (size == 0) return cont;
         for (size_t i = 0; i < size; i++)
         {
             T v{};
             cont >> v;
-            serialization_check_offset(cont);
+            LN_SERIALIZATION_CHECK_OFFSET(cont);
             value.insert(std::move(v));
         }
         return cont;
@@ -801,7 +754,7 @@ struct serialization_stl_type
     template <class Container, class T1, class T2>
     inline static Container& deserialize(Container& cont, std::pair<T1, T2>& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         auto& [k, v] = value;
         return cont >> k >> v;
     }
@@ -833,7 +786,7 @@ struct serialization_stl_type
     template <class Container, class Tuple, size_t Idx>
     inline static Container& deserialize(Container& cont, Tuple& value)
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         if constexpr (Idx == std::tuple_size_v<Tuple>)
         {
             return cont;
@@ -887,12 +840,7 @@ struct serialization_serializable_object
             // 开启数据压缩且可平凡复制优先通过直接拷贝
             if constexpr (((Container::ops & serialization_options::LN_COMPACTED) == 0) && std::is_trivially_copyable_v<T>)
             {
-                if (cont.size() < cont.offset + sizeof(T))
-                {
-                    cont.offset = static_cast<size_t>(-1);
-                    return cont;
-                }
-
+                LN_SERIALIZATION_CHECK_REST(cont, cont.offset + sizeof(T));
                 ::memcpy(&value, cont.cur(), sizeof(T));
                 cont.offset += sizeof(T);
                 return cont;
@@ -907,12 +855,7 @@ struct serialization_serializable_object
                 }
                 else
                 {
-                    if (cont.size() < cont.offset + sizeof(T))
-                    {
-                        cont.offset = static_cast<size_t>(-1);
-                        return cont;
-                    }
-
+                    LN_SERIALIZATION_CHECK_REST(cont, cont.offset + sizeof(T));
                     ::memcpy(&value, cont.cur(), sizeof(T));
                     cont.offset += sizeof(T);
                     return cont;
@@ -1008,15 +951,11 @@ struct serialization_core
     template <class Container, class T, size_t N>
     inline static Container& deserialize(Container& cont, T (&value)[N])
     {
-        serialization_check_offset(cont);
+        LN_SERIALIZATION_CHECK_OFFSET(cont);
         if constexpr (N == 0) return cont;
         if constexpr (((Container::ops & serialization_options::LN_COMPACTED) == 0) && std::is_trivially_copyable_v<T>)
         {
-            if (cont.size() < cont.offset + sizeof(T) * N)
-            {
-                cont.offset = static_cast<size_t>(-1);
-                return cont;
-            }
+            LN_SERIALIZATION_CHECK_REST(cont, cont.offset + sizeof(T) * N);
             ::memcpy(&value, cont.cur(), sizeof(T) * N);
             cont.offset += sizeof(T) * N;
             return cont;
@@ -1026,7 +965,7 @@ struct serialization_core
             for (auto& v : value)
             {
                 cont >> v;
-                serialization_check_offset(cont);
+                LN_SERIALIZATION_CHECK_OFFSET(cont);
             }
             return cont;
         }
