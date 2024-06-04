@@ -3,7 +3,8 @@
         {
             "name": "Win32",
             "includePath": [
-                "${env:IDF_PATH}/components/**"
+                "${env:IDF_PATH}/components/**",
+                "${workspaceFolder}/components/**"
             ],
             "cStandard": "c17",
             "cppStandard": "c++20",

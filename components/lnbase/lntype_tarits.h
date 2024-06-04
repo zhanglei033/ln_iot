@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "lnbase.h"
+#include "lnplatform.h"
 namespace ln {
 /*
  * @brief确定类型参数是否为指针
@@ -137,7 +137,6 @@ static constexpr bool is_set_v<const std::set<T>> = true;
 template <class T>
 static constexpr bool is_set_v<const std::set<T>&> = true;
 
-
 /*
  * @brief 判断类型是否是map的特化
  *
@@ -169,7 +168,6 @@ template <class T1, class T2>
 static constexpr bool is_pair_v<const std::pair<T1, T2>> = true;
 template <class T1, class T2>
 static constexpr bool is_pair_v<const std::pair<T1, T2>&> = true;
-
 
 /*
  * @brief 判断类型是否是tuple的特化

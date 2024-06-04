@@ -33,6 +33,23 @@
 #endif
 #endif
 
+#if defined(__clang__)
+#if defined __apple_build_version__
+#define LN_COMPILER_APPLECLANG 1
+#else
+#define LN_COMPILER_CLANG 1
+#endif
+#define LN_COMPILER_VERSION (((__clang_major__) * 100) + (__clang_minor__ * 10) + __clang_patchlevel__)
+#elif defined(__GNUC__)
+#define LN_COMPILER_GNUC    1
+#define LN_COMPILER_VERSION (((__GNUC__) * 100) + (__GNUC_MINOR__ * 10) + __GNUC_PATCHLEVEL__)
+#elif defined(_MSC_VER)
+#define LN_COMPILER_MSVC    1
+#define LN_COMPILER_VERSION _MSC_VER
+#else
+#error "unknown compiler."
+#endif
+
 #ifndef LN_APP_NDEBUG
 #define LN_APP_NDEBUG 0
 #endif
@@ -180,6 +197,9 @@ typedef double float64_t;
 #include <direct.h>  // for mkdir,rmdir,chdir,getcwd
 #include <io.h>      // for open,close,read,write,lseek,tell
 #include <process.h> // for getpid,exec
+
+#undef min
+#undef max
 
 // esp32系统相关头文件
 #elif LN_PLATFORM_ESP32

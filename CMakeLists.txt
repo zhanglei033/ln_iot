@@ -13,7 +13,7 @@ include(cmake/vars.cmake)
 project(ln_iot_framework VERSION 1.0)
 # C++17 C17
 set(CMAKE_C_STANDARD 17)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 

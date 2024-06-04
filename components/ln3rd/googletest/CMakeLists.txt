@@ -6,7 +6,7 @@ idf_component_register(SRCS ${CUR_SOURCE}
 else() # 其他编译
 
 cmake_minimum_required (VERSION 3.8)
-project(xgoogletest VERSION 1.0)
+project(googletest VERSION 1.0)
 
 # C++17 C17
 set(CMAKE_C_STANDARD 17)
